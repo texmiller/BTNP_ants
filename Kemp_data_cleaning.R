@@ -45,8 +45,55 @@ sites <- read.csv("kempf_site_data.csv") %>%
 bait_long <- left_join(bind_rows(honey,tuna)%>% 
   replace(is.na(.), 0) %>% 
   mutate(site=interaction(Day,Site),
-         minute=Round*20),sites,by="site")
+         minute=Round*20),sites,by="site") %>% 
+  mutate(other=Pheidole.dentata+Tapinoma.sessile+Pheidole.moerens+
+           Camponotus.pennsylvanicus+Crematogaster.sp+Unidentified.1+
+           Aphaenogaster.treatae+Unidentified.2+Cyphomyrmex.rimosus)
+
+## aggregate time points by station and get fraction of stations visited by 2 invaders
+bait_long %>% 
+  group_by(site,Station,Nfulva) %>% 
+  summarise(Si=sum(Solenopsis.invicta),
+            Nf=sum(Nylanderia.fulva),
+            other=sum(other)) %>% 
+  mutate(Si_present=Si>0,
+         Nf_present=Nf>0,
+         other_present=other>0) %>% 
+  group_by(Nfulva) %>% 
+  summarise(Si=mean(Si_present),
+            Nf=mean(Nf_present),
+            other=mean(other_present)) %>% 
+  gather(key="sp",value="fraction",Si,Nf,other) %>% 
+  ggplot(aes(x=Nfulva,y=fraction,fill=sp))+
+  geom_bar(stat="identity",position=position_dodge())+
+  labs(y="Fraction of bait stations",
+       x="Nylanderia status")+
+  theme_bw()
+
+## time to recruitment
+bait_long %>% 
+  select(site,Station,bait,Solenopsis.invicta,Nylanderia.fulva,other,minute) %>% 
+  group_by(as.factor(minute),bait) %>% 
+  summarise(Nylanderia.fulva = mean(Nylanderia.fulva),
+            Solenopsis.invicta = mean(Solenopsis.invicta),
+            other = mean(other)) %>% 
+  gather(key="sp",value="Mean",Solenopsis.invicta,Nylanderia.fulva,other) %>% 
+  mutate(sp = factor(sp,levels=c("Nylanderia.fulva","Solenopsis.invicta","other"))) %>% 
+  ggplot(aes(x=`as.factor(minute)`,y=Mean,fill=bait))+
+  geom_bar(stat="identity",position=position_dodge())+
+  labs(y="Mean workers at bait",
+       x="Minutes")+
+  facet_grid(sp~.)+
+  theme_bw()
 
 
-
-
+bait_long %>% 
+  select(site,Station,bait,Solenopsis.invicta,Nylanderia.fulva,other,minute) %>% 
+  group_by(as.factor(minute),bait) %>% 
+  gather(key="sp",value="workers",Solenopsis.invicta,Nylanderia.fulva,other) %>% 
+  mutate(sp = factor(sp,levels=c("Nylanderia.fulva","Solenopsis.invicta","other"))) %>% 
+  ggplot(aes(x=`as.factor(minute)`,y=workers,fill=bait))+
+  geom_boxplot(position=position_dodge())+
+  labs(y="Mean workers at bait",
+       x="Minutes")+
+  facet_grid(sp~.)
